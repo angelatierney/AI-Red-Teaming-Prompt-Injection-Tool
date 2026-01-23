@@ -1,0 +1,26 @@
+[Unit]
+Description=AI Red Teaming & Prompt Injection Tool
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/Python-Automation-and-Analysis-Toolkit
+ExecStart=/usr/bin/python3 /home/pi/Python-Automation-and-Analysis-Toolkit/pi-redteam.py --target-url YOUR_TARGET_URL --api-key YOUR_API_KEY --stealth
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security: Run with minimal privileges
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Resource limits (adjust for Raspberry Pi)
+MemoryLimit=512M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target
