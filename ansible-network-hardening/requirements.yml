@@ -1,5 +1,0 @@
----
-# Ansible Galaxy collections required for harden_loadbalancer.yml
-collections:
-  - name: community.general
-  - name: ansible.posix
