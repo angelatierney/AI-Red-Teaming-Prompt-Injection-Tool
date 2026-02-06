@@ -1,0 +1,60 @@
+---
+# NGINX Load Balancer Role - Main Tasks
+
+- name: Check if NGINX is installed
+  command: which nginx
+  register: nginx_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install NGINX
+  package:
+    name: nginx
+    state: present
+  when: nginx_installed.rc != 0
+
+- name: Load configuration from file
+  include_vars: "{{ config_file }}"
+  when: config_file is defined
+
+- name: Create NGINX configuration directory
+  file:
+    path: /etc/nginx/conf.d
+    state: directory
+    mode: '0755'
+
+- name: Generate NGINX load balancer configuration
+  template:
+    src: nginx_lb.conf.j2
+    dest: /etc/nginx/conf.d/load_balancer.conf
+    mode: '0644'
+  notify: restart nginx
+
+- name: Backup default NGINX config
+  copy:
+    src: /etc/nginx/nginx.conf
+    dest: /etc/nginx/nginx.conf.backup
+    remote_src: yes
+  when: not nginx_default_backed_up | default(false)
+  register: nginx_backup
+
+- name: Set backup flag
+  set_fact:
+    nginx_default_backed_up: true
+  when: nginx_backup.changed
+
+- name: Test NGINX configuration
+  command: nginx -t
+  register: nginx_test
+  changed_when: false
+
+- name: Fail if NGINX configuration is invalid
+  fail:
+    msg: "NGINX configuration test failed: {{ nginx_test.stderr }}"
+  when: nginx_test.rc != 0
+
+- name: Start and enable NGINX service
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes

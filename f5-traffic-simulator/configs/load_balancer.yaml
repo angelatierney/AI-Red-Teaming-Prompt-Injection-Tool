@@ -1,0 +1,56 @@
+---
+# Load Balancer Configuration File
+# This file defines the frontend, backend pools, and health checks
+# Used by Ansible playbook to generate load balancer configurations
+
+frontend:
+  name: "web_frontend"
+  protocol: "http"
+  port: 80
+  server_name: "_"
+  access_log: "/var/log/nginx/access.log"
+  error_log: "/var/log/nginx/error.log"
+
+backend_pools:
+  - name: "web_servers"
+    load_balancing_method: "round_robin"  # Options: round_robin, least_conn, ip_hash
+    path: "/"  # Route path for this pool
+    servers:
+      - name: "web1"
+        address: "192.168.1.10"
+        port: 8080
+        weight: 1
+        max_fails: 3
+        fail_timeout: 30
+      - name: "web2"
+        address: "192.168.1.11"
+        port: 8080
+        weight: 1
+        max_fails: 3
+        fail_timeout: 30
+      - name: "web3"
+        address: "192.168.1.12"
+        port: 8080
+        weight: 2  # Higher weight = more traffic
+        max_fails: 3
+        fail_timeout: 30
+  
+  - name: "api_servers"
+    load_balancing_method: "least_conn"
+    path: "/api"
+    servers:
+      - name: "api1"
+        address: "192.168.1.20"
+        port: 3000
+        weight: 1
+      - name: "api2"
+        address: "192.168.1.21"
+        port: 3000
+        weight: 1
+
+health_checks:
+  enabled: true
+  interval: 10  # seconds
+  timeout: 5    # seconds
+  path: "/health"
+  expected_status: 200

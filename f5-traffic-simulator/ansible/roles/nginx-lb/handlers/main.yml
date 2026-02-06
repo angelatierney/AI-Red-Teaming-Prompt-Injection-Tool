@@ -1,0 +1,8 @@
+---
+# NGINX Handlers
+
+- name: restart nginx
+  systemd:
+    name: nginx
+    state: restarted
+  listen: restart nginx

@@ -1,0 +1,87 @@
+# NGINX Load Balancer Configuration
+# Generated from Ansible template using Jinja2
+# Frontend: {{ frontend.name | default('default_frontend') }}
+# Protocol: {{ frontend.protocol | upper }}
+# Port: {{ frontend.port }}
+
+# Upstream backend pools
+{% for pool in backend_pools %}
+upstream {{ pool.name }} {
+    {% if pool.load_balancing_method | default('round_robin') == 'least_conn' %}
+    least_conn;
+    {% elif pool.load_balancing_method | default('round_robin') == 'ip_hash' %}
+    ip_hash;
+    {% else %}
+    # Round robin (default)
+    {% endif %}
+    
+    {% for server in pool.servers %}
+    server {{ server.address }}:{{ server.port | default(80) }} 
+        {% if server.weight is defined %}weight={{ server.weight }}{% endif %}
+        {% if server.max_fails is defined %}max_fails={{ server.max_fails }}{% endif %}
+        {% if server.fail_timeout is defined %}fail_timeout={{ server.fail_timeout }}s{% endif %}
+        {% if server.backup is defined and server.backup %}backup{% endif %};
+    {% endfor %}
+}
+{% endfor %}
+
+# Frontend server block
+server {
+    listen {{ frontend.port }};
+    {% if frontend.protocol | lower == 'https' %}
+    listen 443 ssl;
+    ssl_certificate {{ frontend.ssl_certificate | default('/etc/ssl/certs/nginx-selfsigned.crt') }};
+    ssl_certificate_key {{ frontend.ssl_key | default('/etc/ssl/private/nginx-selfsigned.key') }};
+    {% endif %}
+    
+    server_name {{ frontend.server_name | default('_') }};
+    
+    {% if frontend.access_log is defined %}
+    access_log {{ frontend.access_log }};
+    {% endif %}
+    
+    {% if frontend.error_log is defined %}
+    error_log {{ frontend.error_log }};
+    {% endif %}
+    
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+    
+    # Route to backend pools
+    {% for pool in backend_pools %}
+    {% if pool.path is defined %}
+    location {{ pool.path }} {
+        proxy_pass http://{{ pool.name }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        {% if health_checks.timeout is defined %}
+        proxy_connect_timeout {{ health_checks.timeout }}s;
+        proxy_send_timeout {{ health_checks.timeout }}s;
+        proxy_read_timeout {{ health_checks.timeout }}s;
+        {% endif %}
+    }
+    {% endif %}
+    {% endfor %}
+    
+    # Default location
+    location / {
+        proxy_pass http://{{ backend_pools[0].name }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        {% if health_checks.timeout is defined %}
+        proxy_connect_timeout {{ health_checks.timeout }}s;
+        proxy_send_timeout {{ health_checks.timeout }}s;
+        proxy_read_timeout {{ health_checks.timeout }}s;
+        {% endif %}
+    }
+}

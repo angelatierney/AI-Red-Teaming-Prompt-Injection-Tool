@@ -1,0 +1,56 @@
+---
+# HAProxy Load Balancer Role - Main Tasks
+
+- name: Check if HAProxy is installed
+  command: which haproxy
+  register: haproxy_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install HAProxy
+  package:
+    name: haproxy
+    state: present
+  when: haproxy_installed.rc != 0
+
+- name: Load configuration from file
+  include_vars: "{{ config_file }}"
+  when: config_file is defined
+
+- name: Create HAProxy configuration directory
+  file:
+    path: /etc/haproxy
+    state: directory
+    mode: '0755'
+
+- name: Backup existing HAProxy config
+  copy:
+    src: /etc/haproxy/haproxy.cfg
+    dest: /etc/haproxy/haproxy.cfg.backup
+    remote_src: yes
+  when: haproxy_config_exists | default(false)
+  failed_when: false
+  changed_when: false
+
+- name: Generate HAProxy load balancer configuration
+  template:
+    src: haproxy_lb.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    mode: '0644'
+  notify: restart haproxy
+
+- name: Test HAProxy configuration
+  command: haproxy -f /etc/haproxy/haproxy.cfg -c
+  register: haproxy_test
+  changed_when: false
+
+- name: Fail if HAProxy configuration is invalid
+  fail:
+    msg: "HAProxy configuration test failed: {{ haproxy_test.stderr }}"
+  when: haproxy_test.rc != 0
+
+- name: Start and enable HAProxy service
+  systemd:
+    name: haproxy
+    state: started
+    enabled: yes

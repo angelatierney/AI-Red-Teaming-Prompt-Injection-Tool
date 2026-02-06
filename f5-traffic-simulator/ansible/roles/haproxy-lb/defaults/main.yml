@@ -1,0 +1,5 @@
+---
+# Default variables for HAProxy Load Balancer role
+
+haproxy_maxconn: 4096
+haproxy_nbproc: 1

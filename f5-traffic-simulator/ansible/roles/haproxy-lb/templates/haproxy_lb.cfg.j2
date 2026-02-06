@@ -1,0 +1,65 @@
+# HAProxy Load Balancer Configuration
+# Generated from Ansible template using Jinja2
+# Frontend: {{ frontend.name | default('default_frontend') }}
+# Protocol: {{ frontend.protocol | upper }}
+# Port: {{ frontend.port }}
+
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
+
+defaults
+    log global
+    mode {{ frontend.protocol | default('http') }}
+    option httplog
+    option dontlognull
+    option forwardfor
+    option http-server-close
+    timeout connect {{ health_checks.timeout | default(5) }}s
+    timeout client {{ health_checks.timeout | default(5) }}s
+    timeout server {{ health_checks.timeout | default(5) }}s
+    timeout check {{ health_checks.timeout | default(5) }}s
+
+# Frontend configuration
+frontend {{ frontend.name | default('lb_frontend') }}
+    bind *:{{ frontend.port }}
+    {% if frontend.protocol | lower == 'https' %}
+    bind *:443 ssl crt {{ frontend.ssl_certificate | default('/etc/ssl/certs/haproxy.pem') }}
+    {% endif %}
+    
+    # Default backend
+    default_backend {{ backend_pools[0].name }}
+
+# Backend pools
+{% for pool in backend_pools %}
+backend {{ pool.name }}
+    balance {{ pool.load_balancing_method | default('roundrobin') }}
+    
+    {% if health_checks.enabled | default(true) %}
+    option httpchk {{ health_checks.path | default('/health') }}
+    http-check expect status {{ health_checks.expected_status | default(200) }}
+    {% endif %}
+    
+    {% for server in pool.servers %}
+    server {{ server.name | default(loop.index0) }} {{ server.address }}:{{ server.port | default(80) }} 
+        {% if server.weight is defined %}weight {{ server.weight }}{% endif %}
+        {% if server.check is defined and server.check %}check{% endif %}
+        {% if server.check_interval is defined %}check inter {{ server.check_interval }}s{% endif %}
+        {% if server.backup is defined and server.backup %}backup{% endif %}
+        {% if server.maxconn is defined %}maxconn {{ server.maxconn }}{% endif %}
+    {% endfor %}
+{% endfor %}
+
+# Statistics page (optional)
+listen stats
+    bind *:8404
+    stats enable
+    stats uri /stats
+    stats refresh 30s
+    stats admin if TRUE

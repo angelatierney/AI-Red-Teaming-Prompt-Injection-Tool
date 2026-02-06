@@ -1,0 +1,6 @@
+---
+# Default variables for NGINX Load Balancer role
+
+nginx_user: www-data
+nginx_worker_processes: auto
+nginx_worker_connections: 1024

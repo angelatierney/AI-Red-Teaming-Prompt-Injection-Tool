@@ -1,0 +1,37 @@
+---
+# F5 Traffic Simulator - Load Balancer Configuration Playbook
+# This playbook automates the setup of load balancers using Infrastructure as Code principles
+
+- name: Deploy Load Balancer Configuration
+  hosts: localhost
+  become: yes
+  vars:
+    lb_type: "nginx"  # Options: nginx, haproxy
+    config_file: "{{ playbook_dir }}/../configs/load_balancer.yaml"
+  
+  tasks:
+    - name: Include pre-flight validation
+      include_role:
+        name: validation
+      when: validation_enabled | default(true)
+    
+    - name: Deploy NGINX Load Balancer
+      include_role:
+        name: nginx-lb
+      when: lb_type == "nginx"
+    
+    - name: Deploy HAProxy Load Balancer
+      include_role:
+        name: haproxy-lb
+      when: lb_type == "haproxy"
+    
+    - name: Verify load balancer is running
+      systemd:
+        name: "{{ 'nginx' if lb_type == 'nginx' else 'haproxy' }}"
+        state: started
+        enabled: yes
+      register: service_status
+    
+    - name: Display service status
+      debug:
+        msg: "Load balancer service {{ 'nginx' if lb_type == 'nginx' else 'haproxy' }} is {{ service_status.status.ActiveState }}"

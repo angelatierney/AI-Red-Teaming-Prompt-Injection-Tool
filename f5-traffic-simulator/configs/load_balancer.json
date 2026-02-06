@@ -1,0 +1,69 @@
+{
+  "frontend": {
+    "name": "web_frontend",
+    "protocol": "http",
+    "port": 80,
+    "server_name": "_",
+    "access_log": "/var/log/nginx/access.log",
+    "error_log": "/var/log/nginx/error.log"
+  },
+  "backend_pools": [
+    {
+      "name": "web_servers",
+      "load_balancing_method": "round_robin",
+      "path": "/",
+      "servers": [
+        {
+          "name": "web1",
+          "address": "192.168.1.10",
+          "port": 8080,
+          "weight": 1,
+          "max_fails": 3,
+          "fail_timeout": 30
+        },
+        {
+          "name": "web2",
+          "address": "192.168.1.11",
+          "port": 8080,
+          "weight": 1,
+          "max_fails": 3,
+          "fail_timeout": 30
+        },
+        {
+          "name": "web3",
+          "address": "192.168.1.12",
+          "port": 8080,
+          "weight": 2,
+          "max_fails": 3,
+          "fail_timeout": 30
+        }
+      ]
+    },
+    {
+      "name": "api_servers",
+      "load_balancing_method": "least_conn",
+      "path": "/api",
+      "servers": [
+        {
+          "name": "api1",
+          "address": "192.168.1.20",
+          "port": 3000,
+          "weight": 1
+        },
+        {
+          "name": "api2",
+          "address": "192.168.1.21",
+          "port": 3000,
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "health_checks": {
+    "enabled": true,
+    "interval": 10,
+    "timeout": 5,
+    "path": "/health",
+    "expected_status": 200
+  }
+}
