@@ -1,0 +1,14 @@
+---
+# Network hardening gold standard - load balancer / edge security
+# Used by harden_loadbalancer.yml
+
+# Only these ports are permitted (HTTP, HTTPS)
+gold_standard_ports: [80, 443]
+
+# Minimum TLS version for secure connections (NIST 800-52)
+min_tls_version: "1.2"
+
+# Legacy services to disable (insecure protocols)
+legacy_services_to_disable:
+  - telnet
+  - ftp
